@@ -1,0 +1,99 @@
+scalar Date
+scalar JSON
+scalar Upload
+scalar PositiveInt
+
+directive @auth on FIELD_DEFINITION
+
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+type Query {
+  currentUser: User! @auth
+  setting: Setting! @auth
+  meals(location: Location!): [Meal!]! @auth
+  registrations(location: Location!, month: Int!, year: Int!): [Registration!]! @auth
+}
+
+type Mutation {
+  register(registerInput: RegisterInput!): User @auth
+  orderMeal(mealId: Int!): MealOrderResult @auth
+  removeOrder(mealOrderId: Int!): MealOrderResult @auth
+}
+
+enum Entity {
+  GARENA
+  OTHER
+}
+
+enum Location {
+  HN
+  HCM
+}
+
+type User {
+  id: Int!
+  email: String
+  name: String
+  entity: Entity
+  location: Location
+  phone: String
+  registered: Boolean
+  myOrders: [MealOrder]
+  myRegistrations: [Registration]
+}
+
+type Setting {
+  currentTime: Date
+  meals: [Meal]
+  registerSchedule: RegisterSchedule
+}
+
+type Meal {
+  id: ID!
+  location: Location
+  date: Date
+  name: String
+  description: String
+  price: String
+}
+
+type RegisterSchedule {
+  id: ID!
+  fromDate: Date
+  toDate: Date
+  month: Int
+  year: Int
+}
+
+type MealOrder {
+  id: ID!
+  meal: Meal
+  date: Date
+  type: String
+  paid: Boolean
+}
+
+type Registration {
+  id: ID!
+  location: Location
+  email: String
+  month: Int
+  year: Int
+  choice: String
+  createdAt: Date
+  updatedAt: Date
+}
+
+type MealOrderResult {
+  success: Boolean
+  message: String
+}
+
+input RegisterInput {
+  month: Int!
+  year: Int!
+  choice: String!
+}
