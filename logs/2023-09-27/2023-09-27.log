@@ -1,0 +1,10 @@
+2023-09-27 14:27:09,288 - graphql_logger - INFO - GraphQL API request for field 'currentUser'
+2023-09-27 14:27:09,364 - graphql_logger - INFO - GraphQL API completed in 0.07 seconds.
+2023-09-27 14:27:28,178 - graphql_logger - INFO - GraphQL API request for field 'currentUser'
+2023-09-27 14:27:28,181 - graphql_logger - INFO - GraphQL API completed in 0.00 seconds.
+2023-09-27 14:30:03,556 - graphql_logger - INFO - GraphQL API request for field 'currentUser'
+2023-09-27 14:30:03,559 - graphql_logger - INFO - GraphQL API completed in 0.00 seconds.
+2023-09-27 14:32:19,927 - graphql_logger - INFO - GraphQL API request for field 'currentUser'
+2023-09-27 14:32:19,982 - graphql_logger - INFO - GraphQL API completed in 0.05 seconds.
+2023-09-27 14:32:25,370 - graphql_logger - INFO - GraphQL API request for field 'currentUser'
+2023-09-27 14:32:25,372 - graphql_logger - INFO - GraphQL API completed in 0.00 seconds.

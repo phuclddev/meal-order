@@ -1,0 +1,2 @@
+2023-09-26 16:49:23,477 - graphql_logger - INFO - GraphQL API request for field 'currentUser'
+2023-09-26 16:49:23,504 - graphql_logger - INFO - GraphQL API completed in 0.03 seconds.

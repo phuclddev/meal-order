@@ -1,3 +1,6 @@
+import os
+import time
+import redis
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from ariadne import QueryType, MutationType, make_executable_schema, graphql_sync, load_schema_from_path
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
@@ -9,6 +12,8 @@ from graphql import default_field_resolver
 from datetime import datetime, date
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
+import logging
+
 
 app = Flask(__name__)
 
@@ -17,6 +22,15 @@ explorer_html = ExplorerGraphiQL().html(None)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///todos.db'
 db = SQLAlchemy(app)
 admin = Admin(app, name='My admin', template_mode='bootstrap3')
+
+# Replace these values with your Redis server configuration
+REDIS_HOST = 'localhost'
+REDIS_PORT = 6379
+REDIS_DB = 0
+
+# Create a Redis client
+redis_client = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
+
 # Models
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
@@ -233,9 +247,97 @@ class AuthDirective(SchemaDirectiveVisitor):
         field.resolve = auth_resolver
         return field
 
+# Define your log levels (customize as needed)
+LOG_LEVELS = {
+    "info": logging.INFO,
+    "error": logging.ERROR,
+    "debug": logging.DEBUG,
+}
+
+# Create a function to get the log file path based on the current date
+def get_log_file_path():
+    log_folder = "logs"
+    today_date = datetime.now().strftime("%Y-%m-%d")
+    log_file = f"{today_date}.log"
+    log_file_path = os.path.join(log_folder, today_date, log_file)
+    return log_file_path
+
+# Configure your logger
+logger = logging.getLogger("graphql_logger")
+logger.setLevel(logging.DEBUG)  # Set the desired log level
+
+# Create a formatter (customize this to your needs)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# Create a StreamHandler for terminal output
+ch = logging.StreamHandler()
+ch.setFormatter(formatter)
+
+# Create a FileHandler for log file output
+log_file_path = get_log_file_path()
+os.makedirs(os.path.dirname(log_file_path), exist_ok=True)  # Create subfolders if they don't exist
+fh = logging.FileHandler(log_file_path)
+fh.setFormatter(formatter)
+
+# Add the StreamHandler and FileHandler to the logger
+logger.addHandler(ch)
+logger.addHandler(fh)
+
+class LogDirective(SchemaDirectiveVisitor):
+    def visit_field_definition(self, field, object_type):
+        original_resolver = field.resolve or default_field_resolver
+        log_level = self.args.get("level", "info").lower()
+        log_value = LOG_LEVELS.get(log_level, logging.INFO)
+
+        def log_and_resolve(obj, info, **kwargs):
+            field_name = info.field_name  # Get the field name from info
+            logger.log(log_value, f"GraphQL API request for field '{field_name}'")
+            start_time = time.time()
+            try:
+                result = original_resolver(obj, info, **kwargs)
+                return result
+            except Exception as e:
+                logger.error(f"Error in field '{field_name}': {str(e)}")
+                raise
+            finally:
+                elapsed_time = time.time() - start_time
+                logger.log(log_value, f"GraphQL API completed in {elapsed_time:.2f} seconds.")
+
+        field.resolve = log_and_resolve
+
+
+class LimitDirective(SchemaDirectiveVisitor):
+    def visit_field_definition(self, field, object_type):
+        original_resolver = field.resolve or default_field_resolver
+        limit_key = self.args.get("key")  # Remove the default argument
+        limit_amount = int(self.args["amount"])
+        limit_timeout = int(self.args["timeout"])
+
+        def limited_resolver(root, info, **kwargs):
+            client_ip = info.context.get("client_ip")  # Get client IP address (customize as needed)
+
+            # Use the field name from the info object
+            field_name = info.field_name
+
+            # Create a unique rate limit key based on the client IP and field name
+            rate_limit_key = f"{client_ip}:{field_name}"
+
+            # Check if the rate limit key exists in Redis
+            if redis_client.exists(rate_limit_key):
+                raise Exception("Rate limit exceeded")
+
+            # Set the rate limit key in Redis with an expiration time
+            redis_client.setex(rate_limit_key, limit_timeout, "1")
+
+            # Call the original resolver
+            result = original_resolver(root, info, **kwargs)
+            return result
+
+        field.resolve = limited_resolver
+
 
 # Create a schema using the type definitions and add the directive
-schema = make_executable_schema(type_defs, [query, mutation], directives={"uppercase": UppercaseDirective, "auth": AuthDirective})
+schema = make_executable_schema(type_defs, [query, mutation], directives={"uppercase": UppercaseDirective, "auth": AuthDirective, "log": LogDirective, "limit": LimitDirective})
 
 
 # Login route

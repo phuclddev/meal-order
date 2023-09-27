@@ -4,6 +4,8 @@ scalar Upload
 scalar PositiveInt
 
 directive @auth on FIELD_DEFINITION
+directive @log(level: String) on FIELD_DEFINITION
+directive @limit(amount: Int!, timeout: Int!, key: String) on FIELD_DEFINITION
 
 schema {
   query: Query
@@ -11,10 +13,10 @@ schema {
 }
 
 type Query {
-  currentUser: User! @auth
-  setting: Setting! @auth
-  meals(location: Location!): [Meal!]! @auth
-  registrations(location: Location!, month: Int!, year: Int!): [Registration!]! @auth
+  currentUser: User! @auth @log @limit(amount: 3, timeout: 5)
+  setting: Setting! @auth @log
+  meals(location: Location!): [Meal!]! @auth @log
+  registrations(location: Location!, month: Int!, year: Int!): [Registration!]! @auth @log
 }
 
 type Mutation {
